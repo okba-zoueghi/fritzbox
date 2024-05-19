@@ -21,6 +21,8 @@ Some services typically restrict functionalities based on IP addresses. E.g., ht
 To be able to download data again, the owner of the IP address shall wait 6 hours. This script can be used to automate changing the IP address of a fritzbox router which allows to bypass the https://mega.nz/ download restriction. The script can be called each time the https://mega.nz/ quota
 is exceeded (or each time before starting a download) to allow unlimited download.
 
+For unlimited download form https://mega.nz/ using a fritzbox router, have a look at my other repo: https://github.com/okba-zoueghi/mega-download
+
 ## Usage
 
 Calling the script without argument will use the following fritbox ip address and port: http://fritz.box:49000
