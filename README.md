@@ -40,6 +40,8 @@ pip install -r requirements.txt
 
 ## Usage
 
+### Use CLI
+
 Calling the script without argument will use the following fritbox url and port: http://fritz.box:49000
 
 ```shell
@@ -50,4 +52,30 @@ If your fritzbox has another address, you can use the script as follows:
 
 ```shell
 fritzbox-change-ip.py --url '<ip of your fritzbox>:<SOAP port>'
+```
+
+### Use in a python script
+
+```python
+  from fritzbox import RequestError, ConnectionStatus, Fritzbox
+  fritzbox = Fritzbox('http://fritz.box:49000')
+
+  # Get and display public IP address
+  error_code, public_ip = fritzbox.get_public_ip()
+  if error_code == RequestError.NO_ERROR:
+      print("Public IP is:", public_ip)
+  else:
+      print("Failed to get public IP:", error_code)
+
+  # Get and display connection status
+  error_code, connection_status = fritzbox.get_connection_status()
+  if error_code != RequestError.NO_ERROR:
+      print("Connection status:", connection_status)
+
+  # Attempt to change the public IP address
+  error_code = fritzbox.change_ip_address_block()
+  if error_code == RequestError.NO_ERROR:
+      print("Successfully changed IP address.")
+  else:
+      print("Failed to change IP address:", error_code)
 ```
