@@ -39,6 +39,14 @@ class RequestError(Enum):
     TIMEOUT_ERROR = 3
     OTHER_ERROR = 100
 
+class WANIPConnection:
+    def __init__(self):
+        self.service_urn = 'urn:schemas-upnp-org:service:WANIPConnection:1'
+        self.control_url = '/igdupnp/control/WANIPConn1'
+        self.action_GetExternalIPAddress = 'GetExternalIPAddress'
+        self.action_ForceTermination = 'ForceTermination'
+        self.action_GetStatusInfo = 'GetStatusInfo'
+
 class Fritzbox:
     """Class for interacting with the Fritzbox router via UPnP."""
     def __init__(self, soap_url):
@@ -49,14 +57,10 @@ class Fritzbox:
             soap_url (str): The base URL for the Fritzbox SOAP API.
         """
         self.soap_url = soap_url
-        self.control_url = '/igdupnp/control/WANIPConn1'
-        self.get_public_ip_action = 'GetExternalIPAddress'
-        self.force_termination_action = 'ForceTermination'
-        self.get_status_info_action = 'GetStatusInfo'
-        self.service_url = soap_url + self.control_url
+        self.WANIPConnection = WANIPConnection()
 
     @staticmethod
-    def create_soap_request(action):
+    def create_soap_request(service_urn, action):
         """
         Create SOAP request headers and body for a given action.
 
@@ -67,13 +71,13 @@ class Fritzbox:
             tuple: A tuple containing the headers and body for the SOAP request.
         """
         headers = {
-            'SoapAction': f'urn:schemas-upnp-org:service:WANIPConnection:1#{action}',
+            'SoapAction': f'{service_urn}#{action}',
             'Content-Type': 'text/xml; charset=utf-8'
         }
         body = f"""<?xml version="1.0" encoding="utf-8"?>
             <s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
                 <s:Body>
-                    <u:{action} xmlns:u="urn:schemas-upnp-org:service:WANIPConnection:1"/>
+                    <u:{action} xmlns:u=\"{service_urn}\"/>
                 </s:Body>
             </s:Envelope>"""
         return (headers, body)
@@ -87,9 +91,9 @@ class Fritzbox:
         """
         public_ip = None
         error_code = RequestError.NO_ERROR
-        headers, body = Fritzbox.create_soap_request(self.get_public_ip_action)
+        headers, body = Fritzbox.create_soap_request(self.WANIPConnection.service_urn, self.WANIPConnection.action_GetExternalIPAddress)
         try:
-            response = requests.post(self.service_url, headers = headers, data = body)
+            response = requests.post(self.soap_url + self.WANIPConnection.control_url, headers = headers, data = body)
             response.raise_for_status()
             root = ET.fromstring(response.content)
             # Find the tag containing the ExternalIPAddress
@@ -122,10 +126,10 @@ class Fritzbox:
             tuple: A tuple containing the request error code and the connection status.
         """
         error_code = RequestError.NO_ERROR
-        headers, body = Fritzbox.create_soap_request(self.get_status_info_action)
+        headers, body = Fritzbox.create_soap_request(self.WANIPConnection.service_urn, self.WANIPConnection.action_GetStatusInfo)
         connection_status = None
         try:
-            response = requests.post(self.service_url, headers = headers, data = body)
+            response = requests.post(self.soap_url + self.WANIPConnection.control_url, headers = headers, data = body)
             response.raise_for_status()
             root = ET.fromstring(response.content)
             # Find the tag containing the ExternalIPAddress
@@ -168,9 +172,9 @@ class Fritzbox:
             RequestError: The request error code indicating the success or failure of the operation.
         """
         error_code = RequestError.NO_ERROR
-        headers, body = Fritzbox.create_soap_request(self.force_termination_action)
+        headers, body = Fritzbox.create_soap_request(self.WANIPConnection.service_urn, self.WANIPConnection.action_ForceTermination)
         try:
-            response = requests.post(self.service_url, headers = headers, data = body)
+            response = requests.post(self.soap_url + self.WANIPConnection.control_url, headers = headers, data = body)
             response.raise_for_status()
         except requests.exceptions.HTTPError as http_err:
             print(f'HTTP error occurred: {http_err}')
