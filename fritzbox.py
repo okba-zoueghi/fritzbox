@@ -47,6 +47,12 @@ class WANIPConnection:
         self.action_ForceTermination = 'ForceTermination'
         self.action_GetStatusInfo = 'GetStatusInfo'
 
+class WANCommonInterfaceConfig:
+    def __init__(self):
+        self.service_urn = 'urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1'
+        self.control_url = '/igdupnp/control/WANCommonIFC1'
+        self.action_GetTotalBytesReceived = 'GetAddonInfos'
+
 class Fritzbox:
     """Class for interacting with the Fritzbox router via UPnP."""
     def __init__(self, soap_url):
@@ -58,6 +64,7 @@ class Fritzbox:
         """
         self.soap_url = soap_url
         self.WANIPConnection = WANIPConnection()
+        self.WANCommonInterfaceConfig = WANCommonInterfaceConfig()
 
     @staticmethod
     def create_soap_request(service_urn, action):
@@ -213,3 +220,35 @@ class Fritzbox:
                 time.sleep(2)
 
         return error_code
+
+    def get_total_bytes_received(self):
+        byte_received = None
+        error_code = RequestError.NO_ERROR
+        headers, body = Fritzbox.create_soap_request(self.WANCommonInterfaceConfig.service_urn, self.WANCommonInterfaceConfig.action_GetTotalBytesReceived)
+        try:
+            response = requests.post(self.soap_url + self.WANCommonInterfaceConfig.control_url, headers = headers, data = body)
+            response.raise_for_status()
+
+            root = ET.fromstring(response.content)
+            print(response.content)
+            # Find the tag containing the ExternalIPAddress
+            byte_received_tag = root.find('.//NewX_AVM_DE_TotalBytesReceived64')
+            if byte_received_tag is not None:
+                byte_received = byte_received_tag.text
+            else:
+                print("TotalBytesReceived A not found in response.")
+
+        except requests.exceptions.HTTPError as http_err:
+            print(f'HTTP error occurred: {http_err}')
+            error_code = RequestError.HTTP_ERROR
+        except requests.exceptions.ConnectionError as conn_err:
+            print(f'Connection error occurred: {conn_err}')
+            error_code = RequestError.CONNECTION_ERROR
+        except requests.exceptions.Timeout as timeout_err:
+            print(f'Timeout error occurred: {timeout_err}')
+            error_code = RequestError.TIMEOUT_ERROR
+        except requests.exceptions.RequestException as req_err:
+            print(f'Request exception occurred: {req_err}')
+            error_code = RequestError.OTHER_ERROR
+
+        return (error_code, byte_received)
