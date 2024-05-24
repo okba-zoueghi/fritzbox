@@ -39,32 +39,9 @@ class RequestError(Enum):
     TIMEOUT_ERROR = 3
     OTHER_ERROR = 100
 
-class WANIPConnection:
+class SoapUtil:
     def __init__(self):
-        self.service_urn = 'urn:schemas-upnp-org:service:WANIPConnection:1'
-        self.control_url = '/igdupnp/control/WANIPConn1'
-        self.action_GetExternalIPAddress = 'GetExternalIPAddress'
-        self.action_ForceTermination = 'ForceTermination'
-        self.action_GetStatusInfo = 'GetStatusInfo'
-
-class WANCommonInterfaceConfig:
-    def __init__(self):
-        self.service_urn = 'urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1'
-        self.control_url = '/igdupnp/control/WANCommonIFC1'
-        self.action_GetTotalBytesReceived = 'GetAddonInfos'
-
-class Fritzbox:
-    """Class for interacting with the Fritzbox router via UPnP."""
-    def __init__(self, soap_url):
-        """
-        Initialize Fritzbox with the provided SOAP URL.
-
-        Args:
-            soap_url (str): The base URL for the Fritzbox SOAP API.
-        """
-        self.soap_url = soap_url
-        self.WANIPConnection = WANIPConnection()
-        self.WANCommonInterfaceConfig = WANCommonInterfaceConfig()
+        pass
 
     @staticmethod
     def create_soap_request(service_urn, action):
@@ -89,27 +66,12 @@ class Fritzbox:
             </s:Envelope>"""
         return (headers, body)
 
-    def get_public_ip(self):
-        """
-        Get the public IP address of the Fritzbox.
-
-        Returns:
-            tuple: A tuple containing the request error code and the public IP address.
-        """
-        public_ip = None
+    @staticmethod
+    def post_soap_request(url, headers, body):
         error_code = RequestError.NO_ERROR
-        headers, body = Fritzbox.create_soap_request(self.WANIPConnection.service_urn, self.WANIPConnection.action_GetExternalIPAddress)
         try:
-            response = requests.post(self.soap_url + self.WANIPConnection.control_url, headers = headers, data = body)
+            response = requests.post(url, headers = headers, data = body)
             response.raise_for_status()
-            root = ET.fromstring(response.content)
-            # Find the tag containing the ExternalIPAddress
-            ip_tag = root.find('.//NewExternalIPAddress')
-            if ip_tag is not None:
-                public_ip = ip_tag.text
-            else:
-                print("External IP Address not found in response.")
-
         except requests.exceptions.HTTPError as http_err:
             print(f'HTTP error occurred: {http_err}')
             error_code = RequestError.HTTP_ERROR
@@ -123,6 +85,55 @@ class Fritzbox:
             print(f'Request exception occurred: {req_err}')
             error_code = RequestError.OTHER_ERROR
 
+        return (error_code, response)
+
+class WANIPConnection:
+    def __init__(self):
+        self.service_urn = 'urn:schemas-upnp-org:service:WANIPConnection:1'
+        self.control_url = '/igdupnp/control/WANIPConn1'
+        self.action_GetExternalIPAddress = 'GetExternalIPAddress'
+        self.action_ForceTermination = 'ForceTermination'
+        self.action_GetStatusInfo = 'GetStatusInfo'
+
+class WANCommonInterfaceConfig:
+    def __init__(self):
+        self.service_urn = 'urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1'
+        self.control_url = '/igdupnp/control/WANCommonIFC1'
+        self.action_GetTotalBytesReceived = 'GetTotalBytesReceived'
+
+class Fritzbox:
+    """Class for interacting with the Fritzbox router via UPnP."""
+    def __init__(self, soap_url):
+        """
+        Initialize Fritzbox with the provided SOAP URL.
+
+        Args:
+            soap_url (str): The base URL for the Fritzbox SOAP API.
+        """
+        self.soap_util = SoapUtil()
+        self.soap_url = soap_url
+        self.WANIPConnection = WANIPConnection()
+        self.WANCommonInterfaceConfig = WANCommonInterfaceConfig()
+
+    def get_public_ip(self):
+        """
+        Get the public IP address of the Fritzbox.
+
+        Returns:
+            tuple: A tuple containing the request error code and the public IP address.
+        """
+        public_ip = None
+        error_code = RequestError.NO_ERROR
+        headers, body = self.soap_util.create_soap_request(self.WANIPConnection.service_urn, self.WANIPConnection.action_GetExternalIPAddress)
+        error_code, response = self.soap_util.post_soap_request(self.soap_url + self.WANIPConnection.control_url, headers, body)
+        if error_code == RequestError.NO_ERROR:
+            root = ET.fromstring(response.content)
+            # Find the tag containing the ExternalIPAddress
+            ip_tag = root.find('.//NewExternalIPAddress')
+            if ip_tag is not None:
+                public_ip = ip_tag.text
+            else:
+                print("External IP Address not found in response.")
         return (error_code, public_ip)
 
     def get_connection_status(self):
@@ -132,12 +143,11 @@ class Fritzbox:
         Returns:
             tuple: A tuple containing the request error code and the connection status.
         """
-        error_code = RequestError.NO_ERROR
-        headers, body = Fritzbox.create_soap_request(self.WANIPConnection.service_urn, self.WANIPConnection.action_GetStatusInfo)
         connection_status = None
-        try:
-            response = requests.post(self.soap_url + self.WANIPConnection.control_url, headers = headers, data = body)
-            response.raise_for_status()
+        error_code = RequestError.NO_ERROR
+        headers, body = self.soap_util.create_soap_request(self.WANIPConnection.service_urn, self.WANIPConnection.action_GetStatusInfo)
+        error_code, response = self.soap_util.post_soap_request(self.soap_url + self.WANIPConnection.control_url, headers, body)
+        if error_code == RequestError.NO_ERROR:
             root = ET.fromstring(response.content)
             # Find the tag containing the ExternalIPAddress
             connection_status_tag = root.find('.//NewConnectionStatus')
@@ -154,20 +164,6 @@ class Fritzbox:
                     connection_status = ConnectionStatus.PENDING_DISCONNECT
                 else:
                     connection_status = ConnectionStatus.OTHER_CONNECTION_STATUS
-
-        except requests.exceptions.HTTPError as http_err:
-            print(f'HTTP error occurred: {http_err}')
-            error_code = RequestError.HTTP_ERROR
-        except requests.exceptions.ConnectionError as conn_err:
-            print(f'Connection error occurred: {conn_err}')
-            error_code = RequestError.CONNECTION_ERROR
-        except requests.exceptions.Timeout as timeout_err:
-            print(f'Timeout error occurred: {timeout_err}')
-            error_code = RequestError.TIMEOUT_ERROR
-        except requests.exceptions.RequestException as req_err:
-            print(f'Request exception occurred: {req_err}')
-            error_code = RequestError.OTHER_ERROR
-
         return (error_code, connection_status)
 
 
@@ -179,23 +175,8 @@ class Fritzbox:
             RequestError: The request error code indicating the success or failure of the operation.
         """
         error_code = RequestError.NO_ERROR
-        headers, body = Fritzbox.create_soap_request(self.WANIPConnection.service_urn, self.WANIPConnection.action_ForceTermination)
-        try:
-            response = requests.post(self.soap_url + self.WANIPConnection.control_url, headers = headers, data = body)
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as http_err:
-            print(f'HTTP error occurred: {http_err}')
-            error_code = RequestError.HTTP_ERROR
-        except requests.exceptions.ConnectionError as conn_err:
-            print(f'Connection error occurred: {conn_err}')
-            error_code = RequestError.CONNECTION_ERROR
-        except requests.exceptions.Timeout as timeout_err:
-            print(f'Timeout error occurred: {timeout_err}')
-            error_code = RequestError.TIMEOUT_ERROR
-        except requests.exceptions.RequestException as req_err:
-            print(f'Request exception occurred: {req_err}')
-            error_code = RequestError.OTHER_ERROR
-
+        headers, body = self.soap_util.create_soap_request(self.WANIPConnection.service_urn, self.WANIPConnection.action_ForceTermination)
+        error_code, response = self.soap_util.post_soap_request(self.soap_url + self.WANIPConnection.control_url, headers, body)
         return error_code
 
     def change_ip_address_block(self):
@@ -207,48 +188,33 @@ class Fritzbox:
         """
         error_code = RequestError.NO_ERROR
         error_code = self.change_ip_address()
-        time.sleep(10)
         if error_code == RequestError.NO_ERROR:
+            # Wait for 10 seconds to let the fritzbox process the request
+            for i in range(5):
+                print('Reconnection pending...')
+                time.sleep(2)
             while True:
                 error_code, connection_status = self.get_connection_status()
                 if error_code != RequestError.NO_ERROR:
                     break
                 if connection_status == ConnectionStatus.CONNECTED:
-                    print('IP address changed')
                     break
-                print('Reconneting pending, status: ', connection_status)
+                print('Reconnection pending...')
+                print(connection_status)
                 time.sleep(2)
-
         return error_code
 
     def get_total_bytes_received(self):
         byte_received = None
         error_code = RequestError.NO_ERROR
-        headers, body = Fritzbox.create_soap_request(self.WANCommonInterfaceConfig.service_urn, self.WANCommonInterfaceConfig.action_GetTotalBytesReceived)
-        try:
-            response = requests.post(self.soap_url + self.WANCommonInterfaceConfig.control_url, headers = headers, data = body)
-            response.raise_for_status()
-
+        headers, body = self.soap_util.create_soap_request(self.WANCommonInterfaceConfig.service_urn, self.WANCommonInterfaceConfig.action_GetTotalBytesReceived)
+        error_code, response = self.soap_util.post_soap_request(self.soap_url + self.WANCommonInterfaceConfig.control_url, headers, body)
+        if error_code == RequestError.NO_ERROR:
             root = ET.fromstring(response.content)
-            print(response.content)
             # Find the tag containing the ExternalIPAddress
-            byte_received_tag = root.find('.//NewX_AVM_DE_TotalBytesReceived64')
+            byte_received_tag = root.find('.//NewTotalBytesReceived')
             if byte_received_tag is not None:
                 byte_received = byte_received_tag.text
             else:
-                print("TotalBytesReceived A not found in response.")
-
-        except requests.exceptions.HTTPError as http_err:
-            print(f'HTTP error occurred: {http_err}')
-            error_code = RequestError.HTTP_ERROR
-        except requests.exceptions.ConnectionError as conn_err:
-            print(f'Connection error occurred: {conn_err}')
-            error_code = RequestError.CONNECTION_ERROR
-        except requests.exceptions.Timeout as timeout_err:
-            print(f'Timeout error occurred: {timeout_err}')
-            error_code = RequestError.TIMEOUT_ERROR
-        except requests.exceptions.RequestException as req_err:
-            print(f'Request exception occurred: {req_err}')
-            error_code = RequestError.OTHER_ERROR
-
+                print("TotalBytesReceived not found in response.")
         return (error_code, byte_received)
