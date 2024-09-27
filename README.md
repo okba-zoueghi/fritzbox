@@ -3,13 +3,13 @@
 This repository contains a Python script to interact with a Fritzbox router using SOAP API. The script allows you to get the public IP address, check the connection status, and force the router to change its IP address.
 UPnP shall be enabled in the fritzbox.
 
-http://fritz.box:49000/tr64desc.xml (or \<ip of your fritzbox>:49000/tr64desc.xml) can be used to view the supported SOAP services.
+http://fritz.box:49000/tr64desc.xml and http://fritz.box:49000/igddesc.xml (or \<ip of your fritzbox>:49000/tr64desc.xml) can be used to view the supported SOAP services.
 
 This should work on most fritzbox routers (any fritzbox that supports the service WANIPConnection:1).
 
 This was tested on:
 - FRITZ!Box 7530 AX on FRITZ!OS 7.57.
-- FRITZ!Box 6670 Cable on 7.63
+- FRITZ!Box 6670 Cable on 7.63.
 
 ## Functions
 
