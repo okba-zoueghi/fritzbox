@@ -23,6 +23,11 @@ is exceeded (or each time before starting a download) to allow unlimited downloa
 
 For unlimited https://mega.nz/ download using a fritzbox, refer to my other repo: https://github.com/okba-zoueghi/mega-download.git
 
+## Limitations
+
+Whether or not your IP changes depends on you ISP. For example for me it works with Deutsche Telekom and does not work with Vodafone.
+Every time the fritzbox tries to reconnect Deutsche Telekom assign any available IP to the fritzbox. However with Vodafone it does not work like that. Vodafone actually leases the IP address for some time to each client (maybe 1 day) i.e. even after a reconnection, your IP won't change as long as the same IP is still assigned to your router.
+
 ## Clone and Install Dependencies
 
 Clone:
