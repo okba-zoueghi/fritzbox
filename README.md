@@ -7,7 +7,9 @@ http://fritz.box:49000/tr64desc.xml (or \<ip of your fritzbox>:49000/tr64desc.xm
 
 This should work on most fritzbox routers (any fritzbox that supports the service WANIPConnection:1).
 
-This was tested on FRITZ!Box 7530 AX on FRITZ!OS 7.57.
+This was tested on:
+- FRITZ!Box 7530 AX on FRITZ!OS 7.57.
+- FRITZ!Box 6670 Cable on 7.63
 
 ## Functions
 
